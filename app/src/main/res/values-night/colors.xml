@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 palette seeded from Home Assistant blue (#03A9F4), dark scheme -->
+    <color name="m3_primary">#FF84CFFF</color>
+    <color name="m3_on_primary">#FF00344C</color>
+    <color name="m3_primary_container">#FF004C6C</color>
+    <color name="m3_on_primary_container">#FFC7E7FF</color>
+    <color name="m3_secondary">#FFB6C9D8</color>
+    <color name="m3_on_secondary">#FF21323E</color>
+    <color name="m3_secondary_container">#FF374955</color>
+    <color name="m3_on_secondary_container">#FFD2E5F5</color>
+    <color name="m3_tertiary">#FFCDC0E9</color>
+    <color name="m3_on_tertiary">#FF342B4B</color>
+    <color name="m3_tertiary_container">#FF4B4263</color>
+    <color name="m3_on_tertiary_container">#FFE9DDFF</color>
+    <color name="m3_error">#FFFFB4AB</color>
+    <color name="m3_on_error">#FF690005</color>
+    <color name="m3_error_container">#FF93000A</color>
+    <color name="m3_on_error_container">#FFFFDAD6</color>
+    <color name="m3_background">#FF0F1417</color>
+    <color name="m3_on_background">#FFDFE3E7</color>
+    <color name="m3_surface">#FF0F1417</color>
+    <color name="m3_on_surface">#FFDFE3E7</color>
+    <color name="m3_surface_variant">#FF41484D</color>
+    <color name="m3_on_surface_variant">#FFC1C7CE</color>
+    <color name="m3_outline">#FF8B9198</color>
+    <color name="m3_outline_variant">#FF41484D</color>
+    <color name="m3_surface_container_lowest">#FF0A0F12</color>
+    <color name="m3_surface_container_low">#FF171C1F</color>
+    <color name="m3_surface_container">#FF1B2023</color>
+    <color name="m3_surface_container_high">#FF252B2E</color>
+    <color name="m3_surface_container_highest">#FF303539</color>
+</resources>

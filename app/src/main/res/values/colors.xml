@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher icon background: Home Assistant blue -->
+    <color name="ic_bg">#FF18BCF2</color>
+    <!-- Light-on accent used by Home Assistant for lights -->
+    <color name="ha_light_on">#FFFFC107</color>
+
+    <!-- Material 3 palette seeded from Home Assistant blue (#03A9F4), light scheme -->
+    <color name="m3_primary">#FF00658E</color>
+    <color name="m3_on_primary">#FFFFFFFF</color>
+    <color name="m3_primary_container">#FFC7E7FF</color>
+    <color name="m3_on_primary_container">#FF001E2E</color>
+    <color name="m3_secondary">#FF4F616E</color>
+    <color name="m3_on_secondary">#FFFFFFFF</color>
+    <color name="m3_secondary_container">#FFD2E5F5</color>
+    <color name="m3_on_secondary_container">#FF0B1D29</color>
+    <color name="m3_tertiary">#FF63597C</color>
+    <color name="m3_on_tertiary">#FFFFFFFF</color>
+    <color name="m3_tertiary_container">#FFE9DDFF</color>
+    <color name="m3_on_tertiary_container">#FF1F1635</color>
+    <color name="m3_error">#FFBA1A1A</color>
+    <color name="m3_on_error">#FFFFFFFF</color>
+    <color name="m3_error_container">#FFFFDAD6</color>
+    <color name="m3_on_error_container">#FF410002</color>
+    <color name="m3_background">#FFF6FAFE</color>
+    <color name="m3_on_background">#FF171C1F</color>
+    <color name="m3_surface">#FFF6FAFE</color>
+    <color name="m3_on_surface">#FF171C1F</color>
+    <color name="m3_surface_variant">#FFDDE3EA</color>
+    <color name="m3_on_surface_variant">#FF41484D</color>
+    <color name="m3_outline">#FF71787E</color>
+    <color name="m3_outline_variant">#FFC1C7CE</color>
+    <color name="m3_surface_container_lowest">#FFFFFFFF</color>
+    <color name="m3_surface_container_low">#FFF0F4F8</color>
+    <color name="m3_surface_container">#FFEAEEF2</color>
+    <color name="m3_surface_container_high">#FFE4E9ED</color>
+    <color name="m3_surface_container_highest">#FFDFE3E7</color>
+</resources>

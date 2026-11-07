@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HA Overlay</string>
+    <string name="login_title">Connect to Home Assistant</string>
+    <string name="login_subtitle">Sign in to your Home Assistant server, then pick dashboard cards to pin as floating buttons over any app on the car screen.</string>
+    <string name="server_url">Home Assistant URL</string>
+    <string name="server_url_hint">https://example.ui.nabu.casa</string>
+    <string name="server_url_help">The car is usually on mobile data, so use an address it can reach from outside your home (Nabu Casa or your external URL).</string>
+    <string name="sign_in">Sign in</string>
+    <string name="use_token">Use a long-lived access token instead</string>
+    <string name="token">Long-lived access token</string>
+    <string name="token_help">Create one in Home Assistant under your Profile → Security → Long-lived access tokens.</string>
+    <string name="connect">Connect</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="dashboard">Dashboard</string>
+    <string name="cards_title">Cards</string>
+    <string name="cards_subtitle">Turn a card on to pin it as a floating button. Tap the button to open the card; long-press it to run the card\'s main action.</string>
+    <string name="other_pinned">Pinned from other dashboards</string>
+    <string name="no_cards">No cards with entities were found on this dashboard.</string>
+    <string name="strategy_dashboard">This dashboard is generated automatically by Home Assistant, so it has no cards to pick. Open it in Home Assistant and choose “Take control”, or select another dashboard.</string>
+
+    <string name="overlay_title">Floating buttons</string>
+    <string name="start_overlay">Start floating buttons</string>
+    <string name="stop_overlay">Stop floating buttons</string>
+    <string name="grant_overlay">Allow display over other apps</string>
+    <string name="reset_positions">Reset button positions</string>
+    <string name="button_size">Button size</string>
+    <string name="panel_width">Card popup width</string>
+    <string name="start_on_boot">Start when the car starts</string>
+    <string name="close_outside">Close card popup when tapping outside</string>
+    <string name="settings_title">Settings</string>
+
+    <string name="refresh">Refresh</string>
+    <string name="log_out">Log out</string>
+    <string name="log_out_confirm">Log out of Home Assistant? Your pinned cards are kept.</string>
+    <string name="overlay_help_title">Overlay permission needed</string>
+    <string name="overlay_help">This car screen has no standard permission page. Open Settings → Apps → HA Overlay and allow “Display over other apps”, or run this from a computer:\n\nadb shell appops set com.haoverlay SYSTEM_ALERT_WINDOW allow</string>
+    <string name="ok">OK</string>
+</resources>
