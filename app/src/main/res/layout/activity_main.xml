@@ -258,6 +258,15 @@
                         android:valueTo="640" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/web_cards"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:minHeight="56dp"
+                        android:text="@string/web_cards"
+                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/close_outside"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

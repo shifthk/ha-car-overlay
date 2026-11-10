@@ -358,7 +358,7 @@ final class LyricsOverlay {
         col.addView(lyricsView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height));
 
         accessButton = new MaterialButton(ui);
-        accessButton.setText("Allow notification access");
+        accessButton.setText("Try notification access instead");
         accessButton.setMinHeight(dp(56));
         accessButton.setVisibility(View.GONE);
         accessButton.setOnClickListener(v -> openAccessSettings());
@@ -387,9 +387,11 @@ final class LyricsOverlay {
             shownKey = "";
             titleView.setText("Lyrics");
             subtitleView.setText(offsetLabel(""));
-            accessButton.setVisibility(access ? View.GONE : View.VISIBLE);
-            lyricsView.setMessage(access ? "Nothing is playing."
-                    : "Allow notification access so lyrics can follow what's playing on this screen.");
+            boolean canSee = access || nowPlaying.hasBroadcasts();
+            accessButton.setVisibility(canSee ? View.GONE : View.VISIBLE);
+            lyricsView.setMessage(canSee ? "Nothing is playing."
+                    : "No song detected yet.\n\nIn Spotify, open Settings and turn on “Device Broadcast Status”, "
+                    + "then play a song.");
             return;
         }
         accessButton.setVisibility(View.GONE);

@@ -30,15 +30,16 @@
     <string name="start_on_boot">Start when the car starts</string>
     <string name="close_outside">Close card popup when tapping outside</string>
     <string name="settings_title">Settings</string>
+    <string name="web_cards">Show cards exactly as in Home Assistant</string>
 
     <string name="lyrics_title">Lyrics</string>
     <string name="lyrics_switch">Show a floating lyrics button</string>
-    <string name="lyrics_access">Allow notification access</string>
+    <string name="lyrics_access">Try notification access instead</string>
     <string name="lyrics_size">Lyrics text size</string>
     <string name="lyrics_status_ok">Tap the button to see lyrics in time with the song playing on this screen (Spotify first).</string>
-    <string name="lyrics_status_no_access">Android only lets an app see what\'s playing once it has notification access. Until then, lyrics follow a Home Assistant media player if one is playing.</string>
+    <string name="lyrics_status_no_access">To let lyrics follow Spotify, open Spotify\'s Settings and turn on “Device Broadcast Status”, then play a song. Notification access also works and covers other music apps, but some car screens don\'t offer it.</string>
     <string name="lyrics_help_title">Notification access needed</string>
-    <string name="lyrics_help">This car screen has no notification access page. Lyrics will still work for a song playing on a Home Assistant media player, such as the Spotify integration.</string>
+    <string name="lyrics_help">This car screen has no notification access page. Use Spotify\'s own option instead: Spotify → Settings → Device Broadcast Status.</string>
     <string name="media_watcher_label">HA Overlay lyrics (reads the current song)</string>
 
     <string name="refresh">Refresh</string>

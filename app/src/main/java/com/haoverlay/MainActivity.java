@@ -573,6 +573,13 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
         });
         panelWidth.addOnSliderTouchListener(refreshOnRelease());
 
+        MaterialSwitch webCards = findViewById(R.id.web_cards);
+        webCards.setChecked(store.webCards());
+        webCards.setOnCheckedChangeListener((b, on) -> {
+            store.setWebCards(on);
+            if (OverlayService.running) OverlayService.refresh(this);
+        });
+
         closeOutside.setChecked(store.closeOnOutside());
         closeOutside.setOnCheckedChangeListener((b, on) -> {
             store.setCloseOnOutside(on);

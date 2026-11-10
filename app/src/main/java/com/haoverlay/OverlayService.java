@@ -50,7 +50,7 @@ import java.util.Set;
  * plus one popup window that shows the card that was tapped. Holds a live WebSocket to Home Assistant
  * so button colours and the popup follow entity states in real time.
  */
-public class OverlayService extends Service implements HaSocket.Listener, CardRenderer.Controller {
+public class OverlayService extends Service implements HaSocket.Listener, CardRenderer.Controller, WebCard.Host {
 
     private static final String TAG = "OverlayService";
 
@@ -108,6 +108,10 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
     private HaSocket socket;
     private CardRenderer renderer;
     private LyricsOverlay lyrics;
+    /** Draws cards with Home Assistant's own web interface; {@code null} when that setting is off. */
+    private WebCard webCard;
+    private FrameLayout webWrap;
+    private String webShownId;
     private Map<String, EntityState> states = new HashMap<>();
     private boolean online;
 
@@ -182,6 +186,7 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
                 closePanel();
                 break;
             default:   // START or REFRESH
+                syncWebCard();
                 syncCards();
                 lyrics.sync(screenW, screenH, cards.size());
                 break;
@@ -218,6 +223,8 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
     @Override
     public void onDestroy() {
         lyrics.destroy();
+        if (webCard != null) webCard.release();
+        webCard = null;
         running = false;
         main.removeCallbacksAndMessages(null);
         if (netCallback != null) {
@@ -423,6 +430,7 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
 
     private void closePanel() {
         if (panel != null && panelAdded) removeWindow(panel);
+        if (panelAdded && webCard != null) webCard.popupClosed();
         panelAdded = false;
         panelCardId = null;
         interacting = false;
@@ -446,9 +454,74 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
             return;
         }
         rebuildPending = false;
-        panel.removeAllViews();
         int maxHeight = (int) (screenH * 0.8f);
+        if (webCard != null && webCard.isReady()) {
+            showWebCard(card, maxHeight);
+            return;
+        }
+        // Home Assistant's page isn't loaded (yet): draw the card natively meanwhile.
+        webShownId = null;
+        panel.removeAllViews();
         panel.addView(renderer.build(card, states, online, maxHeight));
+    }
+
+    // ------------------------------------------------------------------ cards drawn by Home Assistant itself
+
+    /** Creates or drops the web renderer to match the setting. */
+    private void syncWebCard() {
+        if (store.webCards() && webCard == null) {
+            webCard = new WebCard(ui, store, this);
+            // Let the buttons appear first; loading Home Assistant's page is the heavy part.
+            final WebCard w = webCard;
+            main.postDelayed(() -> {
+                if (w == webCard) w.load();
+            }, 1500);
+        } else if (!store.webCards() && webCard != null) {
+            webCard.release();
+            webCard = null;
+            webShownId = null;
+            if (panelAdded) rebuildPanel();
+        }
+    }
+
+    private void showWebCard(CardInfo card, int maxHeight) {
+        View v = webCard.view();
+        int height = webCard.desiredHeight(maxHeight - dp(20));
+        if (webWrap == null || panel.getChildCount() != 1 || panel.getChildAt(0) != webWrap || v.getParent() != webWrap) {
+            panel.removeAllViews();
+            if (v.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) v.getParent()).removeView(v);
+            webWrap = new FrameLayout(ui);
+            webWrap.setPadding(dp(8), dp(8), dp(8), dp(12));
+            webWrap.addView(v, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, height));
+            panel.addView(webWrap);
+        } else if (v.getLayoutParams().height != height) {
+            v.getLayoutParams().height = height;
+            v.requestLayout();
+        }
+        if (!card.id.equals(webShownId)) {
+            webShownId = card.id;
+            webCard.show(card.config);
+        }
+    }
+
+    @Override
+    public void onWebCardReady() {
+        if (!panelAdded) return;
+        rebuildPanel();
+        panel.post(this::positionPanel);
+    }
+
+    @Override
+    public void onWebCardSize() {
+        if (!panelAdded || webShownId == null) return;
+        rebuildPanel();
+        panel.post(this::positionPanel);
+    }
+
+    @Override
+    public void onWebCardFailed() {
+        webShownId = null;
+        if (panelAdded) rebuildPanel();
     }
 
     /** Puts the popup beside its button: to the left when the button is on the right half, else to the right. */
@@ -553,6 +626,7 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
     @Override
     public void onConnected() {
         online = true;
+        if (webCard != null && webCard.hasFailed()) webCard.load();   // the network is back: try the page again
         refreshFabs();
         updateNotification();
     }

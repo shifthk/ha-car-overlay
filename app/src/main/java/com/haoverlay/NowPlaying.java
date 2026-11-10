@@ -1,24 +1,34 @@
 package com.haoverlay;
 
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * What is playing on this device right now, read from Android's media sessions (the same data the
- * system media controls show). Prefers Spotify, then whatever else is playing.
- * Needs notification access; see {@link MediaWatcher}.
+ * What is playing on this device right now. Two sources:
+ * <ul>
+ * <li>Android's media sessions (the same data the system media controls show): any player, but it
+ * needs notification access; see {@link MediaWatcher}.</li>
+ * <li>Spotify's own "Device Broadcast Status" announcements: Spotify only, no permission needed,
+ * but the user has to switch that option on in Spotify's settings.</li>
+ * </ul>
  */
 final class NowPlaying {
 
@@ -55,6 +65,16 @@ final class NowPlaying {
     private final List<MediaController.Callback> callbacks = new ArrayList<>();
     private final MediaSessionManager.OnActiveSessionsChangedListener sessionsListener = this::onSessions;
 
+    /** Latest song announced by Spotify's broadcasts, or {@code null}. */
+    private Track broadcastTrack;
+    private boolean receiverRegistered;
+    private final BroadcastReceiver spotifyReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            onSpotifyBroadcast(intent);
+        }
+    };
+
     NowPlaying(Context context, Handler main, Runnable onChange) {
         this.app = context.getApplicationContext();
         this.main = main;
@@ -68,6 +88,7 @@ final class NowPlaying {
 
     /** Safe to call repeatedly; returns false until notification access has been granted. */
     boolean start() {
+        listenForBroadcasts();
         if (started) return true;
         if (!hasAccess(app)) return false;
         try {
@@ -84,6 +105,13 @@ final class NowPlaying {
     }
 
     void stop() {
+        if (receiverRegistered) {
+            try {
+                app.unregisterReceiver(spotifyReceiver);
+            } catch (RuntimeException ignored) {
+            }
+            receiverRegistered = false;
+        }
         if (msm != null && started) {
             try {
                 msm.removeOnActiveSessionsChangedListener(sessionsListener);
@@ -92,6 +120,81 @@ final class NowPlaying {
         }
         started = false;
         clearControllers();
+    }
+
+    private void listenForBroadcasts() {
+        if (receiverRegistered) return;
+        IntentFilter f = new IntentFilter();
+        f.addAction(SPOTIFY + ".metadatachanged");
+        f.addAction(SPOTIFY + ".playbackstatechanged");
+        try {
+            ContextCompat.registerReceiver(app, spotifyReceiver, f, ContextCompat.RECEIVER_EXPORTED);
+            receiverRegistered = true;
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Couldn't listen for Spotify broadcasts", e);
+        }
+    }
+
+    /**
+     * Spotify sends "metadatachanged" (track, artist, album, length) when the song changes and
+     * "playbackstatechanged" (playing, playbackPosition) on play, pause and seek; both carry timeSent.
+     */
+    private void onSpotifyBroadcast(Intent intent) {
+        Bundle x = intent.getExtras();
+        if (x == null) return;
+        Track old = broadcastTrack;
+        Track t = new Track();
+        if (old != null) {
+            t.title = old.title;
+            t.artist = old.artist;
+            t.album = old.album;
+            t.durationMs = old.durationMs;
+            t.positionMs = old.positionMs;
+            t.atRealtime = old.atRealtime;
+            t.playing = old.playing;
+            t.positionKnown = old.positionKnown;
+        }
+        if (x.containsKey("track")) {
+            String title = text(x, "track");
+            String artist = text(x, "artist");
+            boolean changed = !title.equals(t.title) || !artist.equals(t.artist);
+            t.title = title;
+            t.artist = artist;
+            t.album = text(x, "album");
+            t.durationMs = number(x, "length", 0);
+            if (changed && !x.containsKey("playbackPosition")) {
+                // A new song starts from the top; the position broadcast usually follows straight after.
+                t.positionMs = 0;
+                t.atRealtime = SystemClock.elapsedRealtime();
+                t.positionKnown = true;
+            }
+        }
+        if (x.containsKey("playing")) t.playing = x.getBoolean("playing", t.playing);
+        if (x.containsKey("playbackPosition")) {
+            long sent = number(x, "timeSent", 0);
+            long age = sent > 0 ? System.currentTimeMillis() - sent : 0;
+            if (age < 0 || age > 10000) age = 0;
+            t.positionMs = number(x, "playbackPosition", 0);
+            t.atRealtime = SystemClock.elapsedRealtime() - age;
+            t.positionKnown = true;
+        }
+        broadcastTrack = t;
+        onChange.run();
+    }
+
+    private static String text(Bundle x, String key) {
+        Object v = x.get(key);
+        return v == null ? "" : v.toString().trim();
+    }
+
+    private static long number(Bundle x, String key, long fallback) {
+        Object v = x.get(key);
+        return v instanceof Number ? ((Number) v).longValue() : fallback;
+    }
+
+    /** True once Spotify has announced a song, i.e. its "Device Broadcast Status" option is on. */
+    boolean hasBroadcasts() {
+        return broadcastTrack != null;
     }
 
     private void clearControllers() {
@@ -170,6 +273,7 @@ final class NowPlaying {
                 // The session went away while we were reading it.
             }
         }
+        if (best == null && broadcastTrack != null && !broadcastTrack.title.isEmpty()) return broadcastTrack;
         return best;
     }
 

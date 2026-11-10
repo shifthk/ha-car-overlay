@@ -223,6 +223,15 @@ final class Store {
         sp.edit().putInt(K_PANEL_WIDTH, dp).apply();
     }
 
+    /** Draw popups with Home Assistant's own web interface (looks identical to the dashboard). */
+    boolean webCards() {
+        return sp.getBoolean("web_cards", true);
+    }
+
+    void setWebCards(boolean on) {
+        sp.edit().putBoolean("web_cards", on).apply();
+    }
+
     // ------------------------------------------------------------------ lyrics
 
     boolean lyricsEnabled() {
