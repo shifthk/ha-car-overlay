@@ -280,6 +280,15 @@ final class Store {
         sp.edit().putString(K_POS_PREFIX + cardId, x + "," + y).apply();
     }
 
+    /** Whether a floating card is hidden down to its icon. Cards start that way. */
+    boolean cardCollapsed(String cardId) {
+        return sp.getBoolean("collapsed_" + cardId, true);
+    }
+
+    void setCardCollapsed(String cardId, boolean collapsed) {
+        sp.edit().putBoolean("collapsed_" + cardId, collapsed).apply();
+    }
+
     void resetPositions() {
         SharedPreferences.Editor e = sp.edit();
         for (String key : sp.getAll().keySet()) {

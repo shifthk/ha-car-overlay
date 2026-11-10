@@ -26,7 +26,7 @@ final class HaAuth {
     static final String CLIENT_ID = "http://localhost/haoverlay/";
     static final String REDIRECT_URI = "http://localhost/haoverlay/callback";
 
-    static final OkHttpClient HTTP = new OkHttpClient.Builder()
+    static final OkHttpClient HTTP = ChainTrust.apply(new OkHttpClient.Builder())
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)

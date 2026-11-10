@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">HA Overlay</string>
     <string name="login_title">Connect to Home Assistant</string>
-    <string name="login_subtitle">Sign in to your Home Assistant server, then pick dashboard cards to pin as floating buttons over any app on the car screen.</string>
+    <string name="login_subtitle">Sign in to your Home Assistant server, then pick dashboard cards to float over any app on the car screen.</string>
     <string name="server_url">Home Assistant URL</string>
     <string name="server_url_hint">https://example.ui.nabu.casa</string>
     <string name="server_url_help">The car is usually on mobile data, so use an address it can reach from outside your home (Nabu Casa or your external URL).</string>
@@ -15,18 +15,18 @@
 
     <string name="dashboard">Dashboard</string>
     <string name="cards_title">Cards</string>
-    <string name="cards_subtitle">Turn a card on to pin it as a floating button. Tap the button to open the card; long-press it to run the card\'s main action.</string>
+    <string name="cards_subtitle">Turn a card on to put its icon on screen. Tap the icon to show or hide the card. Hold a finger on the icon or the card, then drag, to move it.</string>
     <string name="other_pinned">Pinned from other dashboards</string>
     <string name="no_cards">No cards with entities were found on this dashboard.</string>
     <string name="strategy_dashboard">This dashboard is generated automatically by Home Assistant, so it has no cards to pick. Open it in Home Assistant and choose “Take control”, or select another dashboard.</string>
 
-    <string name="overlay_title">Floating buttons</string>
-    <string name="start_overlay">Start floating buttons</string>
-    <string name="stop_overlay">Stop floating buttons</string>
+    <string name="overlay_title">Floating cards</string>
+    <string name="start_overlay">Show floating cards</string>
+    <string name="stop_overlay">Hide floating cards</string>
     <string name="grant_overlay">Allow display over other apps</string>
-    <string name="reset_positions">Reset button positions</string>
-    <string name="button_size">Button size</string>
-    <string name="panel_width">Card popup width</string>
+    <string name="reset_positions">Reset card positions</string>
+    <string name="button_size">Lyrics button size</string>
+    <string name="panel_width">Card width</string>
     <string name="start_on_boot">Start when the car starts</string>
     <string name="close_outside">Close card popup when tapping outside</string>
     <string name="settings_title">Settings</string>

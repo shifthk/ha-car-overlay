@@ -76,12 +76,56 @@ final class CardInfo {
     /** Icon name to show for this card: its own icon, else its first entity's icon, else the domain default. */
     String iconName(Map<String, EntityState> states) {
         if (!icon.isEmpty()) return icon;
+        String byContent = contentIcon();
+        if (byContent != null) return byContent;
         if (entities.isEmpty()) return "mdi:home-assistant";
         EntityRef first = entities.get(0);
         if (!first.icon.isEmpty()) return first.icon;
         EntityState s = states == null ? null : states.get(first.entityId);
         if (s != null && !s.icon().isEmpty()) return s.icon();
         return "mdi:" + Domains.defaultIcon(Domains.domainOf(first.entityId), s == null ? "" : s.state);
+    }
+
+    /** Icon, then the words that call for it. Earlier rows win, so the more specific subjects come first. */
+    private static final String[][] ICON_WORDS = {
+            {"chart-bar", "apexcharts", "chart", "graph", "history", "per week", "per month", "statistics"},
+            {"chart-box-outline", "stats", "statistic"},
+            {"ev-station", "charger", "charging", "evcc", "wallbox"},
+            {"car-electric", "car", "vehicle", "zeekr", "tesla", "odometer"},
+            {"home-battery", "battery", "foxess", "foxbattery", "powerwall", "inverter"},
+            {"solar-power", "solar", "pv"},
+            {"lightbulb-group", "light", "lamp", "downlight"},
+            {"air-conditioner", "air conditioning", "air con", "aircon", "climate", "daikin", "thermostat", "heating", "hvac"},
+            {"doorbell-video", "doorbell", "camera"},
+            {"door", "door", "lock", "gate"},
+            {"garage", "garage"},
+            {"television", "tv", "television", "media"},
+            {"speaker", "speaker", "music", "sonos"},
+            {"weather-partly-cloudy", "weather", "forecast"},
+            {"robot-vacuum", "vacuum"},
+            {"fan", "fan", "purifier"},
+            {"blinds", "blind", "curtain", "shutter", "cover"},
+            {"shield-home", "alarm", "security"},
+            {"washing-machine", "washer", "washing", "dryer"},
+            {"water-boiler", "hot water", "boiler"},
+            {"thermometer", "temperature"},
+    };
+
+    /** An icon chosen from what the card is about: its name first, then its type and entities. */
+    private String contentIcon() {
+        StringBuilder about = new StringBuilder(type);
+        for (EntityRef r : entities) about.append(' ').append(r.entityId);
+        for (String text : new String[]{title, about.toString()}) {
+            String t = text.toLowerCase(Locale.ROOT).replace('_', ' ').replace('.', ' ').replace('-', ' ').replace(':', ' ');
+            for (String[] row : ICON_WORDS) {
+                for (int i = 1; i < row.length; i++) {
+                    if (java.util.regex.Pattern.compile("(?<![a-z])" + row[i] + "(s|es)?(?![a-z])").matcher(t).find()) {
+                        return "mdi:" + row[0];
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     static String typeLabel(String type) {
@@ -136,7 +180,9 @@ final class CardInfo {
             }
         }
         JSONObject cfg = o.optJSONObject("config");
-        return new CardInfo(id, o.optString("type", "card"), o.optString("title", "Card"), o.optString("icon", ""),
+        // Cards pinned by an older version were saved under a made-up name; prefer the card's own heading.
+        String own = ownTitle(cfg, 0);
+        return new CardInfo(id, o.optString("type", "card"), own != null ? own : o.optString("title", "Card"), o.optString("icon", ""),
                 o.optString("location", ""), refs, cfg == null ? new JSONObject() : cfg);
     }
 
@@ -211,6 +257,28 @@ final class CardInfo {
         String type = card.optString("type", "");
         if (type.isEmpty() || NO_ENTITY_TYPES.contains(type)) return;
 
+        // A state-switch is a slot that shows one of several cards. List those cards themselves, once
+        // each, rather than the slot (the same set is usually repeated in every slot of a dashboard).
+        JSONObject options = "custom:state-switch".equals(type) ? card.optJSONObject("states") : null;
+        if (options != null && options.names() != null) {
+            JSONArray keys = options.names();
+            for (int i = 0; i < keys.length(); i++) {
+                String key = keys.optString(i);
+                JSONObject inner = options.optJSONObject(key);
+                if (inner == null || seenIds.containsKey("option:" + key)) continue;
+                seenIds.put("option:" + key, 0);
+                add(out, seenIds, inner, location, states, Domains.pretty(key));
+            }
+            return;
+        }
+        add(out, seenIds, card, location, states, null);
+    }
+
+    private static void add(List<CardInfo> out, Map<String, Integer> seenIds, JSONObject card,
+                            String location, Map<String, EntityState> states, String fallbackTitle) {
+        String type = card.optString("type", "");
+        if (type.isEmpty() || NO_ENTITY_TYPES.contains(type)) return;
+
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<EntityRef> refs = new ArrayList<>();
         collect(card, refs, seen);
@@ -221,30 +289,61 @@ final class CardInfo {
         seenIds.put(baseId, n);
         String id = n == 0 ? baseId : baseId + "-" + n;
 
-        out.add(new CardInfo(id, type, deriveTitle(card, type, refs, states), card.optString("icon", ""),
-                location, refs, card));
+        String title = ownTitle(card, 0);
+        if (title == null) title = fallbackTitle;
+        if (title == null) title = deriveTitle(card, type, refs, states);
+        out.add(new CardInfo(id, type, title, card.optString("icon", ""), location, refs, card));
+    }
+
+    /** The small heading custom button-cards print at the top of their body, e.g. {@code <div style='${variables.eb}'>Home battery</div>}. */
+    private static final java.util.regex.Pattern EYEBROW =
+            java.util.regex.Pattern.compile("variables\\.eb[^>]*>([^<]{2,60})<");
+
+    /** A name the card states for itself (or one of the cards inside it does); {@code null} if it has none. */
+    private static String ownTitle(JSONObject card, int depth) {
+        if (card == null || depth > 4) return null;
+        for (String key : new String[]{"title", "name", "heading", "primary"}) {
+            Object v = card.opt(key);
+            if (v instanceof String && isPlain((String) v)) return ((String) v).trim();
+        }
+        JSONObject header = card.optJSONObject("header");
+        if (header != null && isPlain(header.optString("title", ""))) return header.optString("title").trim();
+
+        JSONObject fields = card.optJSONObject("custom_fields");
+        Object body = fields == null ? null : fields.opt("body");
+        if (body instanceof String) {
+            java.util.regex.Matcher m = EYEBROW.matcher((String) body);
+            while (m.find()) {
+                String t = m.group(1).replace("&middot;", "·").replace("&amp;", "&").replace("&nbsp;", " ").trim();
+                if (isPlain(t) && !t.contains("&")) return t;
+            }
+        }
+        String t = ownTitle(card.optJSONObject("card"), depth + 1);
+        if (t != null) return t;
+        JSONArray children = card.optJSONArray("cards");
+        if (children != null) {
+            for (int i = 0; i < children.length(); i++) {
+                t = ownTitle(children.optJSONObject(i), depth + 1);
+                if (t != null) return t;
+            }
+        }
+        return null;
+    }
+
+    /** Real text, not a template that only makes sense once Home Assistant has filled it in. */
+    private static boolean isPlain(String s) {
+        String t = s.trim();
+        return !t.isEmpty() && !t.contains("{{") && !t.contains("[[[") && !t.contains("${") && !t.contains("`");
     }
 
     private static String deriveTitle(JSONObject card, String type, List<EntityRef> refs,
                                       Map<String, EntityState> states) {
-        for (String key : new String[]{"title", "name", "heading", "primary"}) {
-            Object v = card.opt(key);
-            if (v instanceof String && !((String) v).trim().isEmpty() && !((String) v).contains("{{")) {
-                return ((String) v).trim();
-            }
-        }
-        JSONArray children = card.optJSONArray("cards");
-        if (children != null) {
-            for (int i = 0; i < children.length(); i++) {
-                JSONObject c = children.optJSONObject(i);
-                if (c == null) continue;
-                String t = c.optString("title", c.optString("heading", "")).trim();
-                if (!t.isEmpty()) return t;
-            }
-        }
         if ("area".equals(type) && !card.optString("area").isEmpty()) {
             return Domains.pretty(card.optString("area"));
         }
+        JSONObject layout = card.optJSONObject("view_layout");
+        String area = layout == null ? "" : layout.optString("grid-area", "").trim();
+        if (!area.isEmpty()) return Domains.pretty(area);
         EntityRef first = refs.get(0);
         EntityState s = states == null ? null : states.get(first.entityId);
         String name = first.displayName(s);

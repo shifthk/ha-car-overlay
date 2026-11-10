@@ -512,13 +512,13 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
 
         String status;
         if (!allowed) {
-            status = "Allow “display over other apps” so the buttons can float above other apps.";
+            status = "Allow “display over other apps” so the cards can float above other apps.";
         } else if (running) {
-            status = "Showing " + pinned + (pinned == 1 ? " floating button." : " floating buttons.");
+            status = "Showing on screen. Tap a card\u2019s icon to show or hide the card.";
         } else if (pinned == 0) {
-            status = "Pin a card below, or turn on the lyrics button, to get started.";
+            status = "Turn on a card below, or the lyrics button, to get started.";
         } else {
-            status = pinned + (pinned == 1 ? " button" : " buttons") + " set up · not showing.";
+            status = pinned + (pinned == 1 ? " item" : " items") + " set up · not showing.";
         }
         if (!running && !OverlayService.lastError.isEmpty()) status += "\n" + OverlayService.lastError;
         overlayStatus.setText(status);
