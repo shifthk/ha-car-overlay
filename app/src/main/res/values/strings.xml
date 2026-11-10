@@ -40,6 +40,9 @@
     <string name="lyrics_status_no_access">To let lyrics follow Spotify, open Spotify\'s Settings and turn on “Device Broadcast Status”, then play a song. Notification access also works and covers other music apps, but some car screens don\'t offer it.</string>
     <string name="lyrics_help_title">Notification access needed</string>
     <string name="lyrics_help">This car screen has no notification access page. Use Spotify\'s own option instead: Spotify → Settings → Device Broadcast Status.</string>
+    <string name="spotify_connect">Connect Spotify account</string>
+    <string name="spotify_disconnect">Disconnect Spotify</string>
+    <string name="lyrics_status_spotify">Connected to Spotify. Lyrics follow whatever your Spotify account is playing, on any device.</string>
     <string name="media_watcher_label">HA Overlay lyrics (reads the current song)</string>
 
     <string name="refresh">Refresh</string>

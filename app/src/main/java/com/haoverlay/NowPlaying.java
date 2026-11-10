@@ -45,6 +45,9 @@ final class NowPlaying {
         boolean playing;
         boolean positionKnown;
         boolean fromHomeAssistant;
+        boolean fromSpotifyApi;
+        /** The Spotify device playing it (Web API only). */
+        String device = "";
 
         String key() {
             return (title + "|" + artist).toLowerCase(Locale.ROOT);

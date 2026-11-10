@@ -34,6 +34,8 @@ import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * The floating lyrics button and its popup. Tap the button to show time-synced lyrics for whatever is
@@ -60,6 +62,13 @@ final class LyricsOverlay {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final NowPlaying nowPlaying;
     private final LrcLib lrc = new LrcLib();
+    private final ExecutorService spotifyWorker = Executors.newSingleThreadExecutor();
+
+    /** Latest answer from Spotify's Web API ({@code null}: nothing playing on the account, or not connected). */
+    private NowPlaying.Track spotifyTrack;
+    private String spotifyError = "";
+    private boolean spotifyBusy;
+    private long spotifyNextAt;
 
     private FloatingCardButton fab;
     private WindowManager.LayoutParams fabLp;
@@ -147,6 +156,7 @@ final class LyricsOverlay {
     void destroy() {
         hide();
         lrc.shutdown();
+        spotifyWorker.shutdownNow();
     }
 
     private void hide() {
@@ -251,6 +261,7 @@ final class LyricsOverlay {
         panel.post(this::positionPanel);
         styleFab();
         shownKey = "";
+        spotifyNextAt = 0;
         nowPlaying.start();
         main.removeCallbacks(tick);
         tick.run();
@@ -380,15 +391,22 @@ final class LyricsOverlay {
     private void update() {
         if (!panelAdded || lyricsView == null) return;
         boolean access = nowPlaying.start();
-        NowPlaying.Track t = nowPlaying.current();
+        pollSpotify();
+        NowPlaying.Track t = store.spotifyConnected() ? spotifyTrack : null;
+        if (t == null) t = nowPlaying.current();
         if (t == null) t = homeAssistantTrack();
 
         if (t == null) {
             shownKey = "";
             titleView.setText("Lyrics");
             subtitleView.setText(offsetLabel(""));
-            boolean canSee = access || nowPlaying.hasBroadcasts();
+            boolean spotify = store.spotifyConnected();
+            boolean canSee = access || nowPlaying.hasBroadcasts() || spotify;
             accessButton.setVisibility(canSee ? View.GONE : View.VISIBLE);
+            if (spotify && !spotifyError.isEmpty()) {
+                lyricsView.setMessage(spotifyError);
+                return;
+            }
             lyricsView.setMessage(canSee ? "Nothing is playing."
                     : "No song detected yet.\n\nIn Spotify, open Settings and turn on “Device Broadcast Status”, "
                     + "then play a song.");
@@ -398,6 +416,7 @@ final class LyricsOverlay {
         titleView.setText(t.title);
         String sub = t.artist;
         if (t.fromHomeAssistant) sub = join(sub, "via Home Assistant");
+        if (t.fromSpotifyApi && !t.device.isEmpty()) sub = join(sub, "on " + t.device);
         subtitleView.setText(offsetLabel(sub));
 
         String key = t.key();
@@ -416,6 +435,55 @@ final class LyricsOverlay {
         } else {
             lyricsView.setClock(0, SystemClock.elapsedRealtime(), 1f, false, t.durationMs);
         }
+    }
+
+    /** Asks Spotify what's playing every few seconds while the popup is open, and right when a song should end. */
+    private void pollSpotify() {
+        if (!store.spotifyConnected()) {
+            spotifyTrack = null;
+            spotifyError = "";
+            return;
+        }
+        long now = SystemClock.elapsedRealtime();
+        if (spotifyBusy || now < spotifyNextAt) return;
+        spotifyBusy = true;
+        spotifyWorker.execute(() -> {
+            NowPlaying.Track got = null;
+            String err = "";
+            try {
+                got = SpotifyApi.currentlyPlaying(store);
+            } catch (SpotifyApi.Rejected e) {
+                err = e.getMessage() + " Connect Spotify again in HA Overlay.";
+            } catch (java.io.IOException | RuntimeException e) {
+                err = e.getMessage() == null ? "Couldn't reach Spotify." : e.getMessage();
+                if (e instanceof java.net.UnknownHostException || e instanceof java.net.SocketTimeoutException) {
+                    err = "Couldn't reach Spotify (no connection?).";
+                }
+            }
+            final NowPlaying.Track t = got;
+            final String error = err;
+            main.post(() -> {
+                spotifyBusy = false;
+                long at = SystemClock.elapsedRealtime();
+                if (!error.isEmpty()) {
+                    Log.w(TAG, "Spotify: " + error);
+                    spotifyError = error;
+                    spotifyNextAt = at + 10000;
+                    // keep showing the last song for a moment rather than blanking on one failed poll
+                    if (spotifyTrack != null && !spotifyTrack.playing) spotifyTrack = null;
+                } else {
+                    spotifyError = "";
+                    spotifyTrack = t;
+                    long next = at + (t != null && t.playing ? 4000 : 8000);
+                    if (t != null && t.playing && t.positionKnown && t.durationMs > 0) {
+                        long endsAt = t.atRealtime + (t.durationMs - t.positionMs) + 700;
+                        if (endsAt > at && endsAt < next) next = endsAt;
+                    }
+                    spotifyNextAt = next;
+                }
+                update();
+            });
+        });
     }
 
     private void load(String key, NowPlaying.Track t) {

@@ -259,6 +259,45 @@ final class Store {
         sp.edit().putLong("lyrics_offset_ms", ms).apply();
     }
 
+    // ------------------------------------------------------------------ Spotify Web API
+
+    String spotifyClientId() {
+        return sp.getString("spotify_client_id", "");
+    }
+
+    void setSpotifyClientId(String id) {
+        sp.edit().putString("spotify_client_id", id).apply();
+    }
+
+    boolean spotifyConnected() {
+        return !spotifyClientId().isEmpty() && !spotifyRefresh().isEmpty();
+    }
+
+    String spotifyAccess() {
+        return sp.getString("spotify_access", "");
+    }
+
+    String spotifyRefresh() {
+        return sp.getString("spotify_refresh", "");
+    }
+
+    long spotifyExpiresAt() {
+        return sp.getLong("spotify_expires_at", 0L);
+    }
+
+    void saveSpotifyTokens(String access, String refresh, long expiresAt) {
+        sp.edit().putString("spotify_access", access).putString("spotify_refresh", refresh)
+                .putLong("spotify_expires_at", expiresAt).commit();
+    }
+
+    void expireSpotifyAccess() {
+        sp.edit().putLong("spotify_expires_at", 0L).apply();
+    }
+
+    void clearSpotify() {
+        sp.edit().remove("spotify_access").remove("spotify_refresh").remove("spotify_expires_at").commit();
+    }
+
     /** True when there is at least one floating button to show (a pinned card or the lyrics button). */
     boolean hasButtons() {
         return lyricsEnabled() || !selectedCards().isEmpty();

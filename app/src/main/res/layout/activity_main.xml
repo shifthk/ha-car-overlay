@@ -127,6 +127,15 @@
                         android:minHeight="56dp"
                         android:text="@string/lyrics_access" />
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/lyrics_spotify"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:minHeight="56dp"
+                        android:text="@string/spotify_connect" />
+
                     <TextView
                         android:id="@+id/lyrics_size_label"
                         android:layout_width="wrap_content"

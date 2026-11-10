@@ -35,6 +35,12 @@
             android:label="@string/login_title"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".SpotifyLoginActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name=".OverlayService"
             android:exported="false"

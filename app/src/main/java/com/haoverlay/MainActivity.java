@@ -76,6 +76,7 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
     private MaterialSwitch lyricsSwitch;
     private TextView lyricsStatus;
     private MaterialButton lyricsAccess;
+    private MaterialButton lyricsSpotify;
 
     private boolean pendingStart;
 
@@ -426,6 +427,22 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
             updateOverlayUi();
         });
         lyricsAccess.setOnClickListener(v -> requestNotificationAccess());
+        lyricsSpotify = findViewById(R.id.lyrics_spotify);
+        lyricsSpotify.setOnClickListener(v -> {
+            if (!store.spotifyConnected()) {
+                startActivity(new Intent(this, SpotifyLoginActivity.class));
+                return;
+            }
+            new MaterialAlertDialogBuilder(this)
+                    .setMessage("Stop reading the current song from Spotify?")
+                    .setPositiveButton(R.string.spotify_disconnect, (d, w) -> {
+                        store.clearSpotify();
+                        if (OverlayService.running) OverlayService.refresh(this);
+                        updateLyricsUi();
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        });
 
         size.setValue(snap(store.lyricsTextSp(), size));
         sizeLabel.setText(getString(R.string.lyrics_size) + ": " + (int) size.getValue());
@@ -439,8 +456,11 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
     private void updateLyricsUi() {
         if (lyricsStatus == null) return;
         boolean access = NowPlaying.hasAccess(this);
-        lyricsStatus.setText(access ? R.string.lyrics_status_ok : R.string.lyrics_status_no_access);
-        lyricsAccess.setVisibility(access ? View.GONE : View.VISIBLE);
+        boolean spotify = store.spotifyConnected();
+        lyricsStatus.setText(spotify ? R.string.lyrics_status_spotify
+                : access ? R.string.lyrics_status_ok : R.string.lyrics_status_no_access);
+        lyricsAccess.setVisibility(access || spotify ? View.GONE : View.VISIBLE);
+        lyricsSpotify.setText(spotify ? R.string.spotify_disconnect : R.string.spotify_connect);
     }
 
     /** Tries this app's own notification-access switch, then the general list, then the app's settings page. */
