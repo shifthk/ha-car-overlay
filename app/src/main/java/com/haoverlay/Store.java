@@ -223,6 +223,38 @@ final class Store {
         sp.edit().putInt(K_PANEL_WIDTH, dp).apply();
     }
 
+    // ------------------------------------------------------------------ lyrics
+
+    boolean lyricsEnabled() {
+        return sp.getBoolean("lyrics_enabled", false);
+    }
+
+    void setLyricsEnabled(boolean on) {
+        sp.edit().putBoolean("lyrics_enabled", on).apply();
+    }
+
+    int lyricsTextSp() {
+        return sp.getInt("lyrics_text_sp", 26);
+    }
+
+    void setLyricsTextSp(int size) {
+        sp.edit().putInt("lyrics_text_sp", size).apply();
+    }
+
+    /** Manual timing correction: positive shows lyrics earlier. */
+    long lyricsOffsetMs() {
+        return sp.getLong("lyrics_offset_ms", 0L);
+    }
+
+    void setLyricsOffsetMs(long ms) {
+        sp.edit().putLong("lyrics_offset_ms", ms).apply();
+    }
+
+    /** True when there is at least one floating button to show (a pinned card or the lyrics button). */
+    boolean hasButtons() {
+        return lyricsEnabled() || !selectedCards().isEmpty();
+    }
+
     /** Saved top-left of a card's floating button, or {@code null} if it was never moved. */
     int[] fabPosition(String cardId) {
         String v = sp.getString(K_POS_PREFIX + cardId, "");

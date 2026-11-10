@@ -44,6 +44,17 @@
                 android:value="Floating Home Assistant dashboard drawn over other apps" />
         </service>
 
+        <!-- Holds notification access, which Android requires before an app may read what is playing. -->
+        <service
+            android:name=".MediaWatcher"
+            android:exported="true"
+            android:label="@string/media_watcher_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">

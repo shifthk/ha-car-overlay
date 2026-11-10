@@ -107,6 +107,7 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
     private WindowManager wm;
     private HaSocket socket;
     private CardRenderer renderer;
+    private LyricsOverlay lyrics;
     private Map<String, EntityState> states = new HashMap<>();
     private boolean online;
 
@@ -145,6 +146,7 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
         wm = windowContext.getSystemService(WindowManager.class);
         renderer = new CardRenderer(ui, this);
         socket = new HaSocket(store, this, true);
+        lyrics = new LyricsOverlay(ui, wm, store, () -> states);
         goForeground();
         registerNetworkCallback();
     }
@@ -174,16 +176,18 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
             case ACTION_RESET_POSITIONS:
                 for (String id : fabLps.keySet()) placeFab(id, true);
                 closePanel();
+                lyrics.resetPosition();
                 break;
             case ACTION_CLOSE_PANEL:
                 closePanel();
                 break;
             default:   // START or REFRESH
                 syncCards();
+                lyrics.sync(screenW, screenH, cards.size());
                 break;
         }
-        if (cards.isEmpty()) {
-            lastError = "No cards are pinned.";
+        if (cards.isEmpty() && !lyrics.isShown()) {
+            lastError = "No cards are pinned and the lyrics button is off.";
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -208,10 +212,12 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
         // Colours may have switched between light and dark.
         refreshFabs();
         if (panelAdded) rebuildPanel();
+        lyrics.onScreenChanged(screenW, screenH);
     }
 
     @Override
     public void onDestroy() {
+        lyrics.destroy();
         running = false;
         main.removeCallbacksAndMessages(null);
         if (netCallback != null) {
@@ -625,7 +631,7 @@ public class OverlayService extends Service implements HaSocket.Listener, CardRe
         PendingIntent stop = PendingIntent.getService(this, 1,
                 new Intent(this, OverlayService.class).setAction(ACTION_STOP), flags);
 
-        int n = cards.size();
+        int n = cards.size() + (lyrics != null && lyrics.isShown() ? 1 : 0);
         String text = (online ? "Connected" : "Connecting to Home Assistant…")
                 + " · " + n + (n == 1 ? " button" : " buttons");
         Notification.Builder b = new Notification.Builder(this, CHANNEL)

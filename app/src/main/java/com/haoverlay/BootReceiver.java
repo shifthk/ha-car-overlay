@@ -13,7 +13,7 @@ public class BootReceiver extends BroadcastReceiver {
         Store store = new Store(context);
         boolean updated = Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction());
         if (!store.overlayEnabled() || (!updated && !store.startOnBoot())) return;
-        if (!store.isLoggedIn() || store.selectedCards().isEmpty()) return;
+        if (!store.isLoggedIn() || !store.hasButtons()) return;
         if (!Settings.canDrawOverlays(context)) return;
         OverlayService.start(context);
     }

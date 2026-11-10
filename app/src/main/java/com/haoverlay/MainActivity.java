@@ -2,6 +2,7 @@ package com.haoverlay;
 
 import android.Manifest;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
@@ -72,6 +73,10 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
     private TextView otherTitle;
     private LinearLayout otherContainer;
 
+    private MaterialSwitch lyricsSwitch;
+    private TextView lyricsStatus;
+    private MaterialButton lyricsAccess;
+
     private boolean pendingStart;
 
     @Override
@@ -122,6 +127,7 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
         });
 
         setupSettings();
+        setupLyrics();
         showCachedDashboards();
         showCachedConfig();
 
@@ -138,7 +144,7 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
             pendingStart = false;
             startOverlay();
         } else if (store.overlayEnabled() && !OverlayService.running && Settings.canDrawOverlays(this)
-                && !store.selectedCards().isEmpty()) {
+                && store.hasButtons()) {
             // The buttons were on but the service was killed (e.g. force-stopped): bring them back.
             OverlayService.start(this);
             main.postDelayed(this::updateOverlayUi, 800);
@@ -393,10 +399,73 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
         if (on) sel.add(card);
         store.setSelectedCards(sel);
         if (OverlayService.running) {
-            if (sel.isEmpty()) stopOverlay();
+            if (!store.hasButtons()) stopOverlay();
             else OverlayService.refresh(this);
         }
         updateOverlayUi();
+    }
+
+    // ------------------------------------------------------------------ lyrics
+
+    private void setupLyrics() {
+        lyricsSwitch = findViewById(R.id.lyrics_switch);
+        lyricsStatus = findViewById(R.id.lyrics_status);
+        lyricsAccess = findViewById(R.id.lyrics_access);
+        Slider size = findViewById(R.id.lyrics_size);
+        TextView sizeLabel = findViewById(R.id.lyrics_size_label);
+
+        lyricsSwitch.setChecked(store.lyricsEnabled());
+        lyricsSwitch.setOnCheckedChangeListener((b, on) -> {
+            store.setLyricsEnabled(on);
+            if (OverlayService.running) {
+                if (!store.hasButtons()) stopOverlay();
+                else OverlayService.refresh(this);
+            } else if (on) {
+                startOverlay();
+            }
+            updateOverlayUi();
+        });
+        lyricsAccess.setOnClickListener(v -> requestNotificationAccess());
+
+        size.setValue(snap(store.lyricsTextSp(), size));
+        sizeLabel.setText(getString(R.string.lyrics_size) + ": " + (int) size.getValue());
+        size.addOnChangeListener((slider, value, fromUser) -> {
+            store.setLyricsTextSp((int) value);
+            sizeLabel.setText(getString(R.string.lyrics_size) + ": " + (int) value);
+        });
+        size.addOnSliderTouchListener(refreshOnRelease());
+    }
+
+    private void updateLyricsUi() {
+        if (lyricsStatus == null) return;
+        boolean access = NowPlaying.hasAccess(this);
+        lyricsStatus.setText(access ? R.string.lyrics_status_ok : R.string.lyrics_status_no_access);
+        lyricsAccess.setVisibility(access ? View.GONE : View.VISIBLE);
+    }
+
+    /** Tries this app's own notification-access switch, then the general list, then the app's settings page. */
+    private void requestNotificationAccess() {
+        List<Intent> tries = new ArrayList<>();
+        if (Build.VERSION.SDK_INT >= 30) {
+            tries.add(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                    .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                            new ComponentName(this, MediaWatcher.class).flattenToString()));
+        }
+        tries.add(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+        tries.add(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+        for (Intent i : tries) {
+            try {
+                startActivity(i);
+                return;
+            } catch (ActivityNotFoundException | SecurityException ignored) {
+                // try the next one
+            }
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.lyrics_help_title)
+                .setMessage(R.string.lyrics_help)
+                .setPositiveButton(R.string.ok, null)
+                .show();
     }
 
     private void showMessage(String text) {
@@ -412,8 +481,8 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
             requestOverlayPermission();
             return;
         }
-        if (store.selectedCards().isEmpty()) {
-            Snackbar.make(cardsContainer, "Pin at least one card first.", Snackbar.LENGTH_LONG).show();
+        if (!store.hasButtons()) {
+            Snackbar.make(cardsContainer, "Pin a card or turn on the lyrics button first.", Snackbar.LENGTH_LONG).show();
             return;
         }
         if (Build.VERSION.SDK_INT >= 33
@@ -435,7 +504,8 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
 
     private void updateOverlayUi() {
         boolean allowed = Settings.canDrawOverlays(this);
-        int pinned = store.selectedCards().size();
+        int pinned = store.selectedCards().size() + (store.lyricsEnabled() ? 1 : 0);
+        updateLyricsUi();
         grantOverlay.setVisibility(allowed ? View.GONE : View.VISIBLE);
         boolean running = OverlayService.running;
         startStop.setText(running ? R.string.stop_overlay : R.string.start_overlay);
@@ -446,9 +516,9 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
         } else if (running) {
             status = "Showing " + pinned + (pinned == 1 ? " floating button." : " floating buttons.");
         } else if (pinned == 0) {
-            status = "Pin a card below to get started.";
+            status = "Pin a card below, or turn on the lyrics button, to get started.";
         } else {
-            status = pinned + (pinned == 1 ? " card pinned" : " cards pinned") + " · not showing.";
+            status = pinned + (pinned == 1 ? " button" : " buttons") + " set up · not showing.";
         }
         if (!running && !OverlayService.lastError.isEmpty()) status += "\n" + OverlayService.lastError;
         overlayStatus.setText(status);

@@ -31,6 +31,16 @@
     <string name="close_outside">Close card popup when tapping outside</string>
     <string name="settings_title">Settings</string>
 
+    <string name="lyrics_title">Lyrics</string>
+    <string name="lyrics_switch">Show a floating lyrics button</string>
+    <string name="lyrics_access">Allow notification access</string>
+    <string name="lyrics_size">Lyrics text size</string>
+    <string name="lyrics_status_ok">Tap the button to see lyrics in time with the song playing on this screen (Spotify first).</string>
+    <string name="lyrics_status_no_access">Android only lets an app see what\'s playing once it has notification access. Until then, lyrics follow a Home Assistant media player if one is playing.</string>
+    <string name="lyrics_help_title">Notification access needed</string>
+    <string name="lyrics_help">This car screen has no notification access page. Lyrics will still work for a song playing on a Home Assistant media player, such as the Spotify integration.</string>
+    <string name="media_watcher_label">HA Overlay lyrics (reads the current song)</string>
+
     <string name="refresh">Refresh</string>
     <string name="log_out">Log out</string>
     <string name="log_out_confirm">Log out of Home Assistant? Your pinned cards are kept.</string>
