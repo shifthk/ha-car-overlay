@@ -46,6 +46,7 @@
     <string name="media_watcher_label">HA Overlay lyrics (reads the current song)</string>
 
     <string name="refresh">Refresh</string>
+    <string name="check_updates">Check for updates</string>
     <string name="log_out">Log out</string>
     <string name="log_out_confirm">Log out of Home Assistant? Your pinned cards are kept.</string>
     <string name="overlay_help_title">Overlay permission needed</string>

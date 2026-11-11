@@ -17,6 +17,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -54,6 +55,9 @@ final class LyricsOverlay {
     private static final long OFFSET_STEP_MS = 250;
     private static final long RETRY_MS = 15000;
     private static final int CACHE_SIZE = 40;
+    /** At this popup size (dp) the lyrics use exactly the "Lyrics text size" setting. */
+    private static final float REF_W_DP = 440, REF_H_DP = 360;
+    private static final int MIN_W_DP = 280, MIN_H_DP = 120;
 
     private final Context ui;
     private final WindowManager wm;
@@ -245,7 +249,7 @@ final class LyricsOverlay {
 
     private void openPanel() {
         if (fab == null) return;
-        int width = Math.min(dp(Math.max(360, store.panelWidthDp())), screenW - dp(16));
+        int width = Math.min(dp(Math.max(MIN_W_DP, store.lyricsWidthDp())), screenW - dp(16));
         panelLp = overlayParams(width, WindowManager.LayoutParams.WRAP_CONTENT);
         panel = buildPanel(panelLp);
         positionPanel();
@@ -363,10 +367,10 @@ final class LyricsOverlay {
         lyricsView = new LyricsView(ui,
                 color(com.google.android.material.R.attr.colorOnSurface, 0xFFDFE3E7),
                 MaterialColors.compositeARGBWithAlpha(color(com.google.android.material.R.attr.colorOnSurface, 0xFFDFE3E7), 95));
-        lyricsView.setTextSizeSp(store.lyricsTextSp());
         lyricsView.setOffsetMs(store.lyricsOffsetMs());
-        int height = Math.min(dp(360), (int) (screenH * 0.6f));
+        int height = Math.max(dp(MIN_H_DP), Math.min(dp(store.lyricsHeightDp()), (int) (screenH * 0.85f) - dp(100)));
         col.addView(lyricsView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height));
+        applyTextSize(lp.width, height);
 
         accessButton = new MaterialButton(ui);
         accessButton.setText("Try notification access instead");
@@ -376,7 +380,78 @@ final class LyricsOverlay {
         LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         alp.setMargins(dp(12), dp(4), dp(12), 0);
         col.addView(accessButton, alp);
+
+        // ---- resize grip, bottom-right corner ----
+        TextView grip = new TextView(ui);
+        grip.setTypeface(MdiIcons.typeface(ui));
+        grip.setText(MdiIcons.glyphOf(ui, "mdi:resize-bottom-right", "mdi:arrow-top-left-bottom-right"));
+        grip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+        grip.setGravity(Gravity.BOTTOM | Gravity.END);
+        grip.setPadding(0, 0, dp(10), dp(6));
+        grip.setTextColor(color(com.google.android.material.R.attr.colorOnSurfaceVariant, 0xFFC0C8CD));
+        grip.setContentDescription("Resize lyrics");
+        grip.setOnTouchListener(new ResizeTouch(lp));
+        wrapper.addView(grip, new FrameLayout.LayoutParams(dp(56), dp(56), Gravity.BOTTOM | Gravity.END));
         return wrapper;
+    }
+
+    /** Lyrics text in proportion to the popup's size, starting from the "Lyrics text size" setting. */
+    private void applyTextSize(int widthPx, int lyricsHeightPx) {
+        if (lyricsView == null) return;
+        float density = ui.getResources().getDisplayMetrics().density;
+        float scale = (float) Math.sqrt((widthPx / density / REF_W_DP) * (lyricsHeightPx / density / REF_H_DP));
+        scale = Math.max(0.6f, Math.min(3f, scale));
+        lyricsView.setTextSizeSp(store.lyricsTextSp() * scale);
+    }
+
+    /** Dragging the corner grip changes the popup's width and the lyrics area's height together. */
+    private final class ResizeTouch implements View.OnTouchListener {
+        private final WindowManager.LayoutParams lp;
+        private float downX, downY;
+        private int startW, startH;
+
+        ResizeTouch(WindowManager.LayoutParams lp) {
+            this.lp = lp;
+        }
+
+        @Override
+        public boolean onTouch(View v, MotionEvent e) {
+            if (panel == null || lyricsView == null || lp != panelLp) return false;
+            ViewGroup.LayoutParams llp = lyricsView.getLayoutParams();
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downX = e.getRawX();
+                    downY = e.getRawY();
+                    startW = lp.width;
+                    startH = llp.height;
+                    v.setAlpha(0.5f);
+                    return true;
+                case MotionEvent.ACTION_MOVE: {
+                    int chrome = panel.getHeight() - llp.height;   // header, padding, buttons
+                    int w = clamp(startW + Math.round(e.getRawX() - downX), dp(MIN_W_DP), screenW - lp.x);
+                    int h = clamp(startH + Math.round(e.getRawY() - downY), dp(MIN_H_DP), screenH - lp.y - chrome);
+                    if (w != lp.width) {
+                        lp.width = w;
+                        updateWindow(panel, lp);
+                    }
+                    if (h != llp.height) {
+                        llp.height = h;
+                        lyricsView.setLayoutParams(llp);
+                    }
+                    applyTextSize(w, h);
+                    return true;
+                }
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL: {
+                    v.setAlpha(1f);
+                    float density = ui.getResources().getDisplayMetrics().density;
+                    store.setLyricsSize(Math.round(lp.width / density), Math.round(llp.height / density));
+                    return true;
+                }
+                default:
+                    return true;
+            }
+        }
     }
 
     private void nudge(long deltaMs) {
@@ -417,6 +492,10 @@ final class LyricsOverlay {
         String sub = t.artist;
         if (t.fromHomeAssistant) sub = join(sub, "via Home Assistant");
         if (t.fromSpotifyApi && !t.device.isEmpty()) sub = join(sub, "on " + t.device);
+        LrcLib.Result found = cache.get(t.key());
+        if (found != null && !found.source.isEmpty()) {
+            sub = join(sub, "lyrics: " + found.source + (found.synced || found.isEmpty() ? "" : " (not timed)"));
+        }
         subtitleView.setText(offsetLabel(sub));
 
         String key = t.key();

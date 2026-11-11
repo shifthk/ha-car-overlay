@@ -79,6 +79,7 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
     private MaterialButton lyricsSpotify;
 
     private boolean pendingStart;
+    private Updater updater;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +109,10 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
                 refresh();
                 return true;
             }
+            if (item.getItemId() == R.id.action_update) {
+                updater.checkNow();
+                return true;
+            }
             if (item.getItemId() == R.id.action_logout) {
                 confirmLogout();
                 return true;
@@ -127,6 +132,8 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
             loadConfig();
         });
 
+        updater = new Updater(this, store);
+        updater.autoCheck();
         setupSettings();
         setupLyrics();
         showCachedDashboards();
@@ -155,6 +162,7 @@ public class MainActivity extends AppCompatActivity implements HaSocket.Listener
 
     @Override
     protected void onDestroy() {
+        if (updater != null) updater.shutdown();
         if (socket != null) socket.close();
         main.removeCallbacksAndMessages(null);
         super.onDestroy();

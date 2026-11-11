@@ -250,6 +250,19 @@ final class Store {
         sp.edit().putInt("lyrics_text_sp", size).apply();
     }
 
+    /** Size the lyrics popup was last resized to (dp); the lyrics text grows and shrinks with it. */
+    int lyricsWidthDp() {
+        return sp.getInt("lyrics_w_dp", Math.max(360, panelWidthDp()));
+    }
+
+    int lyricsHeightDp() {
+        return sp.getInt("lyrics_h_dp", 360);
+    }
+
+    void setLyricsSize(int widthDp, int heightDp) {
+        sp.edit().putInt("lyrics_w_dp", widthDp).putInt("lyrics_h_dp", heightDp).apply();
+    }
+
     /** Manual timing correction: positive shows lyrics earlier. */
     long lyricsOffsetMs() {
         return sp.getLong("lyrics_offset_ms", 0L);
@@ -257,6 +270,25 @@ final class Store {
 
     void setLyricsOffsetMs(long ms) {
         sp.edit().putLong("lyrics_offset_ms", ms).apply();
+    }
+
+    // ------------------------------------------------------------------ updates
+
+    /** Read-only GitHub token for fetching releases from the private repository. */
+    String githubToken() {
+        return sp.getString("github_token", "");
+    }
+
+    void setGithubToken(String token) {
+        sp.edit().putString("github_token", token).apply();
+    }
+
+    long lastUpdateCheck() {
+        return sp.getLong("last_update_check", 0L);
+    }
+
+    void setLastUpdateCheck(long at) {
+        sp.edit().putLong("last_update_check", at).apply();
     }
 
     // ------------------------------------------------------------------ Spotify Web API

@@ -59,7 +59,9 @@ final class LyricsView extends View {
         setTextSizeSp(26);
     }
 
-    void setTextSizeSp(int sp) {
+    void setTextSizeSp(float sp) {
+        float px = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, getResources().getDisplayMetrics());
+        if (Math.abs(px - paint.getTextSize()) < 0.5f) return;
         paint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, getResources().getDisplayMetrics()));
         rebuild();
     }

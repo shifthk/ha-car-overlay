@@ -6,6 +6,10 @@
         android:title="@string/refresh"
         app:showAsAction="always" />
     <item
+        android:id="@+id/action_update"
+        android:title="@string/check_updates"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_logout"
         android:title="@string/log_out"
         app:showAsAction="never" />

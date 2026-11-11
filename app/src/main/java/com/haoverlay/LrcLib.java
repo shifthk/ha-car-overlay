@@ -25,8 +25,12 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 /**
- * Looks up lyrics on LRCLIB (lrclib.net), a free community lyrics database that has
- * line-by-line timestamps for most popular songs. No account or key is needed.
+ * Finds lyrics, trying free sources that need no account or key, best first:
+ * <ol>
+ * <li>LRCLIB (lrclib.net): community database with line-by-line timing for most popular songs.</li>
+ * <li>NetEase Cloud Music: large catalogue with timed lyrics, including many songs LRCLIB lacks.</li>
+ * <li>lyrics.ovh: words only (no timing), as a last resort.</li>
+ * </ol>
  */
 final class LrcLib {
 
@@ -45,6 +49,8 @@ final class LrcLib {
         List<Line> lines = Collections.emptyList();
         boolean synced;
         boolean instrumental;
+        /** Where the lyrics came from, e.g. "LRCLIB". */
+        String source = "";
 
         boolean isEmpty() {
             return lines.isEmpty();
@@ -86,6 +92,156 @@ final class LrcLib {
     }
 
     private Result lookup(String title, String artist, String album, double durationS) throws IOException {
+        Result best = new Result();
+        IOException failure = null;
+        boolean anyAnswered = false;
+        try {
+            best = lrclib(title, artist, album, durationS);
+            if (!best.isEmpty() || best.instrumental) best.source = "LRCLIB";
+            anyAnswered = true;
+        } catch (IOException e) {
+            failure = e;
+        }
+        if (best.synced || best.instrumental) return best;
+        try {
+            Result n = netease(title, artist, durationS);
+            anyAnswered = true;
+            if (n.synced || best.isEmpty()) best = better(best, n);
+        } catch (IOException | RuntimeException e) {
+            if (failure == null && e instanceof IOException) failure = (IOException) e;
+        }
+        if (!best.isEmpty()) return best;
+        try {
+            Result o = lyricsOvh(title, artist);
+            anyAnswered = true;
+            best = better(best, o);
+        } catch (IOException | RuntimeException e) {
+            if (failure == null && e instanceof IOException) failure = (IOException) e;
+        }
+        if (!anyAnswered && failure != null) throw failure;   // offline: let the caller retry later
+        return best;
+    }
+
+    // ------------------------------------------------------------------ NetEase Cloud Music
+
+    private static final String NETEASE = "https://music.163.com/api/";
+    /** Song-credit lines NetEase puts at the top ("作词 : ...", "Producer : ..."), not sung words. */
+    private static final Pattern CREDIT = Pattern.compile(
+            "^.{0,30}?(作词|作曲|编曲|制作|混音|母带|和声|吉他|贝斯|鼓|录音|监制|出品|发行|词|曲|Lyricist|Composer|Producer|Arranger|Mix|Master)[^:：]{0,12}[:：].*",
+            Pattern.CASE_INSENSITIVE);
+
+    private Result netease(String title, String artist, double durationS) throws IOException {
+        String cleanTitle = cleanTitle(title);
+        String first = firstArtist(artist);
+        HttpUrl search = HttpUrl.parse(NETEASE + "search/get").newBuilder()
+                .addQueryParameter("s", (cleanTitle + " " + first).trim())
+                .addQueryParameter("type", "1")
+                .addQueryParameter("limit", "10")
+                .build();
+        String body = neteaseGet(search);
+        Result best = new Result();
+        if (body == null) return best;
+        JSONArray songs;
+        try {
+            JSONObject res = new JSONObject(body).optJSONObject("result");
+            songs = res == null ? null : res.optJSONArray("songs");
+        } catch (JSONException e) {
+            return best;
+        }
+        if (songs == null) return best;
+        String wantTitle = norm(cleanTitle);
+        String wantArtist = norm(first);
+        int tried = 0;
+        for (int i = 0; i < songs.length() && tried < 3; i++) {
+            JSONObject o = songs.optJSONObject(i);
+            if (o == null) continue;
+            String name = norm(cleanTitle(o.optString("name", "")));
+            if (name.isEmpty() || !(name.contains(wantTitle) || wantTitle.contains(name))) continue;
+            if (!wantArtist.isEmpty() && !artistMatches(o.optJSONArray("artists"), wantArtist)) continue;
+            double diff = durationS > 0 ? Math.abs(o.optLong("duration", 0) / 1000.0 - durationS) : 0;
+            tried++;
+            HttpUrl lyric = HttpUrl.parse(NETEASE + "song/lyric").newBuilder()
+                    .addQueryParameter("id", String.valueOf(o.optLong("id")))
+                    .addQueryParameter("lv", "1")
+                    .build();
+            String lb = neteaseGet(lyric);
+            if (lb == null) continue;
+            String lrc;
+            try {
+                JSONObject j = new JSONObject(lb);
+                if (j.optBoolean("nolyric", false) || j.optBoolean("uncollected", false)) continue;
+                JSONObject l = j.optJSONObject("lrc");
+                lrc = l == null ? "" : l.optString("lyric", "");
+            } catch (JSONException e) {
+                continue;
+            }
+            List<Line> lines = new ArrayList<>();
+            for (Line line : parseLrc(lrc)) {
+                if (line.timeMs < 40000 && CREDIT.matcher(line.text).matches()) continue;
+                lines.add(line);
+            }
+            boolean hasWords = false;
+            for (Line line : lines) hasWords |= !line.text.isEmpty();
+            if (!hasWords) continue;
+            Result r = new Result();
+            r.lines = lines;
+            r.source = "NetEase";
+            r.synced = diff <= MAX_DURATION_DIFF_S;   // other length (live, radio edit): words only
+            if (r.synced) return r;
+            best = better(best, r);
+        }
+        return best;
+    }
+
+    private static boolean artistMatches(JSONArray artists, String want) {
+        if (artists == null) return true;
+        for (int i = 0; i < artists.length(); i++) {
+            JSONObject a = artists.optJSONObject(i);
+            String n = a == null ? "" : norm(a.optString("name", ""));
+            if (!n.isEmpty() && (n.contains(want) || want.contains(n))) return true;
+        }
+        return false;
+    }
+
+    private String neteaseGet(HttpUrl url) throws IOException {
+        Request req = new Request.Builder().url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36")
+                .header("Referer", "https://music.163.com/")
+                .build();
+        try (Response resp = http.newCall(req).execute()) {
+            if (!resp.isSuccessful()) return null;
+            ResponseBody b = resp.body();
+            return b == null ? null : b.string();
+        }
+    }
+
+    // ------------------------------------------------------------------ lyrics.ovh (words only)
+
+    private Result lyricsOvh(String title, String artist) throws IOException {
+        Result r = new Result();
+        String first = firstArtist(artist);
+        if (first.isEmpty()) return r;
+        HttpUrl url = new HttpUrl.Builder().scheme("https").host("api.lyrics.ovh")
+                .addPathSegment("v1").addPathSegment(first).addPathSegment(cleanTitle(title)).build();
+        String body = get(url);
+        if (body == null) return r;
+        try {
+            String text = new JSONObject(body).optString("lyrics", "").replace("\r", "");
+            if (text.trim().isEmpty()) return r;
+            List<Line> lines = new ArrayList<>();
+            for (String l : text.split("\n")) lines.add(new Line(-1, l.trim()));
+            // The first line is sometimes "Paroles de la chanson X par Y".
+            if (!lines.isEmpty() && lines.get(0).text.startsWith("Paroles de la chanson")) lines.remove(0);
+            r.lines = lines;
+            r.source = "lyrics.ovh";
+        } catch (JSONException ignored) {
+        }
+        return r;
+    }
+
+    // ------------------------------------------------------------------ LRCLIB
+
+    private Result lrclib(String title, String artist, String album, double durationS) throws IOException {
         String firstArtist = firstArtist(artist);
         String cleanTitle = cleanTitle(title);
         Result best = new Result();
